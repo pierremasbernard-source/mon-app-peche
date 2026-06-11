@@ -1,0 +1,39 @@
+# ---------------------------------------------------------------
+# .gitignore — Carnet de pêche
+# Projet statique (HTML/CSS/JS vanilla). Pas de build, pas de
+# dépendances installées (Leaflet est chargé via CDN).
+# ---------------------------------------------------------------
+
+# Fichiers système
+.DS_Store
+Thumbs.db
+desktop.ini
+ehthumbs.db
+$RECYCLE.BIN/
+
+# Dépendances (au cas où on ajouterait un jour npm)
+node_modules/
+package-lock.json
+yarn.lock
+
+# package.json vestigial (référence Vite, non utilisé — projet 100% vanilla sans build)
+# Retirer cette ligne si un vrai outillage npm est introduit plus tard.
+package.json
+
+# Fichiers temporaires / éditeurs
+*.tmp
+*.swp
+*.swo
+*~
+*.log
+
+# Config locale d'éditeurs / IDE
+.vscode/
+.idea/
+*.code-workspace
+
+# Config locale Claude (serveur de prévisualisation, etc.)
+.claude/
+
+# Sauvegardes exportées depuis l'app (données personnelles)
+carnet-peche-*.json
