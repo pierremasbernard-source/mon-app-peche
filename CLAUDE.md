@@ -15,7 +15,7 @@ Usage personnel, mono-poste (mais multi-profils en local). Pas de compte, pas de
 | Élément        | Choix                                                              |
 |----------------|--------------------------------------------------------------------|
 | Langages       | HTML, CSS, JavaScript **vanilla** (aucun framework, aucun build)    |
-| Carte          | **Leaflet 1.9.4** + tuiles **OpenStreetMap** (chargés via CDN, pas de clé API) |
+| Carte          | **Leaflet 1.9.4** (CDN). Fonds : **OpenStreetMap** + **cartes marines SHOM** (WMTS) — voir section dédiée |
 | Météo          | API **Open-Meteo** (gratuite, sans clé) pour les prévisions par spot |
 | Graphiques     | Barres en **CSS pur** (pas de librairie de charts)                 |
 | Stockage       | **localStorage** du navigateur uniquement                          |
@@ -24,6 +24,52 @@ Usage personnel, mono-poste (mais multi-profils en local). Pas de compte, pas de
 Le code est organisé en modules JS, chacun exposant un objet global via IIFE
 (`Store`, `UI`, `MapView`, `Sessions`, `Planner`, `Stats`, `Gallery`). Pas d'import/export ES modules :
 les scripts sont chargés dans l'ordre dans `index.html` (`storage.js` en premier, `app.js` en dernier).
+
+## Fonds de carte (SHOM + OpenStreetMap)
+
+Configuré dans [`js/map.js`](js/map.js) (helper `shomLayer` + sélecteur `L.control.layers`).
+
+Le **SHOM** (Service hydrographique et océanographique de la marine) diffuse ses données en
+**WMTS**. Leaflet ne gère pas le WMTS nativement : on consomme les tuiles avec `L.tileLayer`
+et une URL « KVP » `GetTile`.
+
+- **Endpoint public** : `https://services.data.shom.fr/INSPIRE/wmts`
+- **TileMatrixSet** : `3857` (EPSG:3857 / Web Mercator), niveaux `0`→`21` dont les identifiants
+  correspondent **directement** au `{z}` de Leaflet. Mapping :
+  `tilematrix={z}&tilerow={y}&tilecol={x}` (aucune reprojection).
+- **Format** : `image/png`, **style** : `normal`.
+- Les identifiants de couches ci-dessous ont été **lus dans le GetCapabilities**
+  (`?service=WMTS&version=1.0.0&request=GetCapabilities`), pas devinés.
+
+### Couches utilisées
+
+| Rôle      | Identifiant WMTS                        | Accès             |
+|-----------|-----------------------------------------|-------------------|
+| Fond principal (cartes marines raster) | `RASTER_MARINE_3857_WMTS` | 🔒 **clé requise** (401 sans clé) |
+| Overlay bathymétrie côtière Bretagne   | `LITTO3D_BZH_2018_2021_PYR_3857_WMTS` | ✅ public |
+| Overlay bathymétrie large Atlantique   | `MNT_ATL100m_HOMONIM_PBMA_3857_WMTS` | ✅ public |
+| Overlay nature des fonds (sédiments)   | `NDF_PYR-PNG_WLD_3857_WMTS` | ✅ public |
+| Overlay toponymie marine               | `TOPONYMIE_PYR_PNG_3857_WMTS` | ✅ public |
+| Fond alternatif                        | OpenStreetMap (XYZ)        | ✅ public |
+
+### Clé d'API SHOM (cartes marines raster)
+
+La couche d'**assemblage des cartes marines raster** (`RASTER_MARINE_3857_WMTS`) — celle avec
+sondes et isobathes imprimées — **n'est pas publique** : sans clé elle renvoie
+`HTTP 401 MissingRights`. Elle est **pré-câblée** dans `map.js` :
+
+1. Créer une clé d'API gratuite sur <https://data.shom.fr>.
+2. La coller dans la constante `SHOM_API_KEY` en haut de `js/map.js`.
+3. Les tuiles passent alors par l'endpoint authentifié
+   `https://services.data.shom.fr/<CLÉ>/wmts` et le fond « Cartes marines » devient
+   sélectionnable (et le fond par défaut).
+
+Sans clé, l'app utilise OpenStreetMap par défaut + les overlays SHOM publics ci-dessus
+(qui suffisent à voir bathymétrie et nature des fonds, utiles pour la pêche).
+
+> ⚠️ Ne jamais committer une vraie clé d'API dans le dépôt (CGU SHOM + sécurité).
+
+L'attribution **« © SHOM »** est affichée sur la carte (option `attribution` des tuiles).
 
 ## Stockage des données
 
@@ -145,6 +191,8 @@ ne lit/écrit `localStorage` directement.
 - Système de **profils** multiples (création, sélection, suppression, changement).
 - **Carte interactive** : ajout de spot par clic, marqueurs différenciés mer/eau douce,
   popup avec infos + sessions du spot, modification et suppression.
+- **Fonds de carte marins SHOM** (WMTS) avec sélecteur de couches : OSM ou cartes marines
+  raster (clé requise), + overlays bathymétrie / nature des fonds / toponymie. Voir section dédiée.
 - **Log de session** : formulaire complet à champs dynamiques selon le type (profondeur pour
   la chasse, technique/appât pour la canne), conditions, captures multiples avec photos.
 - **Planificateur** : recommandation basique à partir de conditions saisies, météo réelle via

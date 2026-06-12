@@ -37,3 +37,7 @@ package.json
 
 # Sauvegardes exportées depuis l'app (données personnelles)
 carnet-peche-*.json
+
+# Fichiers d'inspection temporaires (ex : GetCapabilities WMTS récupéré pour debug)
+shom_caps.xml
+*_caps.xml
