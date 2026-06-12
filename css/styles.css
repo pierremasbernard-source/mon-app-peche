@@ -168,6 +168,41 @@ textarea { resize: vertical; min-height: 70px; }
 .spot-marker.mer { background: var(--mer); }
 .spot-marker.douce { background: var(--douce); }
 
+/* Sélecteur de couches : bouton « toggle » + panneau au thème sombre.
+   Le panneau Leaflet (.leaflet-control-layers) est masqué par défaut
+   (classe .cp-collapsed) et révélé au clic sur le bouton .cp-layers-btn. */
+.leaflet-control-layers.cp-layers {
+  background: var(--bg-2);
+  color: var(--text);
+  border: 0;
+  border-radius: var(--radius-sm);
+  box-shadow: var(--shadow);
+  overflow: hidden;
+}
+/* Le bouton toujours visible, discret mais explicite */
+.cp-layers-btn {
+  display: block; width: 100%;
+  background: var(--bg-2); color: var(--text);
+  border: 0; cursor: pointer;
+  font-family: inherit; font-size: .82rem; font-weight: 600;
+  padding: .55rem .8rem; text-align: left; white-space: nowrap;
+}
+.cp-layers-btn:hover { background: var(--bg-3); }
+.cp-caret { margin-left: .4rem; display: inline-block; transition: transform .15s; }
+/* flèche retournée quand le panneau est ouvert */
+.cp-layers:not(.cp-collapsed) .cp-caret { transform: rotate(180deg); }
+
+/* Le panneau (form) : visible sauf si .cp-collapsed */
+.cp-layers .leaflet-control-layers-list {
+  display: block;
+  padding: .2rem .7rem .5rem;
+  border-top: 1px solid #243a55;
+}
+.cp-layers.cp-collapsed .leaflet-control-layers-list { display: none; }
+.cp-layers label { color: var(--text); margin: .3rem 0; font-size: .82rem; font-weight: 500; }
+.cp-layers .leaflet-control-layers-separator { border-top: 1px solid #243a55; margin: .4rem 0; }
+.cp-layers .leaflet-control-layers-selector { margin-right: .4rem; }
+
 /* =================================================================
    Cartes / listes génériques
    ================================================================= */

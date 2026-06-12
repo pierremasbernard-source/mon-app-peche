@@ -96,13 +96,35 @@ const MapView = (() => {
     // sinon OpenStreetMap (le fond raster serait en 401 sans clé).
     (SHOM_API_KEY ? shomRaster : osm).addTo(map);
 
-    // Sélecteur de couches Leaflet (déplié pour être visible d'emblée)
-    L.control.layers(baseLayers, overlays, { collapsed: false }).addTo(map);
+    // Sélecteur de couches : on le construit déplié (collapsed:false) pour que
+    // tout le DOM du panneau soit présent, puis on l'encapsule derrière un bouton
+    // de bascule discret (voir setupLayersToggle + styles .cp-layers* dans le CSS).
+    const layersControl = L.control.layers(baseLayers, overlays, { collapsed: false }).addTo(map);
+    setupLayersToggle(layersControl);
 
     // Clic sur la carte -> formulaire d'ajout de spot à ces coordonnées
     map.on('click', e => openSpotForm(null, e.latlng.lat, e.latlng.lng));
 
     renderSpots();
+  }
+
+  // Transforme le panneau de couches (toujours ouvert) en bouton « toggle » :
+  // un bouton sombre et explicite ouvre/ferme le panneau au clic.
+  function setupLayersToggle(control) {
+    const container = control.getContainer();
+    // cp-collapsed = panneau masqué au départ (seul le bouton est visible)
+    container.classList.add('cp-layers', 'cp-collapsed');
+
+    // Bouton placé en tête du contrôle
+    const btn = L.DomUtil.create('button', 'cp-layers-btn');
+    btn.type = 'button';
+    btn.setAttribute('aria-label', 'Changer de fond de carte');
+    btn.innerHTML = '🗺️ Fond de carte <span class="cp-caret">▾</span>';
+    container.insertBefore(btn, container.firstChild);
+
+    // Empêche le clic de se propager à la carte (pan/zoom) et bascule l'état
+    L.DomEvent.disableClickPropagation(container);
+    btn.addEventListener('click', () => container.classList.toggle('cp-collapsed'));
   }
 
   // (Re)dessine tous les marqueurs
