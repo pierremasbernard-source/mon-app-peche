@@ -10,6 +10,45 @@ const MapView = (() => {
   const DEFAULT_CENTER = [48.82, -3.30];
   const DEFAULT_ZOOM = 12;
 
+  /* ---------------------------------------------------------------
+     FONDS DE CARTE SHOM (cartes marines)
+     ---------------------------------------------------------------
+     Le SHOM diffuse ses données en WMTS (https://services.data.shom.fr).
+     Leaflet ne gère pas le WMTS nativement : on consomme les tuiles via
+     L.tileLayer avec une URL « KVP » GetTile. Le TileMatrixSet « 3857 »
+     est en EPSG:3857 (Web Mercator) avec des niveaux 0→21 dont les
+     identifiants correspondent directement au {z} de Leaflet ; on mappe
+     donc tilematrix={z}, tilerow={y}, tilecol={x} sans reprojection.
+     (Identifiants de couches/format/TMS lus dans le GetCapabilities,
+      pas devinés — voir CLAUDE.md.)
+
+     ⚠️ La couche d'assemblage des CARTES MARINES RASTER
+     (RASTER_MARINE_3857_WMTS) n'est PAS publique : sans clé elle renvoie
+     HTTP 401 « MissingRights ». Pour l'activer, créez une clé d'API
+     gratuite sur https://data.shom.fr puis collez-la ci-dessous : la
+     couche passe alors par l'endpoint authentifié et devient le fond
+     principal. Les autres couches SHOM (bathymétrie, nature des fonds,
+     toponymie) sont, elles, accessibles librement.
+  --------------------------------------------------------------- */
+  const SHOM_API_KEY = ''; // ← collez votre clé SHOM ici pour activer les cartes marines raster
+
+  // Construit une couche Leaflet à partir d'un identifiant de couche WMTS SHOM.
+  function shomLayer(layerId, opts = {}) {
+    // Avec une clé : endpoint authentifié ; sinon : endpoint public INSPIRE.
+    const base = SHOM_API_KEY
+      ? `https://services.data.shom.fr/${SHOM_API_KEY}/wmts`
+      : 'https://services.data.shom.fr/INSPIRE/wmts';
+    const url = base
+      + '?service=WMTS&version=1.0.0&request=GetTile'
+      + `&layer=${layerId}&style=normal&tilematrixset=3857&format=image/png`
+      + '&tilematrix={z}&tilerow={y}&tilecol={x}';
+    return L.tileLayer(url, Object.assign({
+      attribution: '© SHOM',
+      maxZoom: 19,        // zoom max d'affichage de la carte
+      maxNativeZoom: 18,  // au-delà, Leaflet agrandit la dernière tuile dispo
+    }, opts));
+  }
+
   // Crée une icône de marqueur colorée selon le type (mer / eau douce)
   function makeIcon(type) {
     return L.divIcon({
@@ -26,11 +65,39 @@ const MapView = (() => {
 
     map = L.map('map').setView(DEFAULT_CENTER, DEFAULT_ZOOM);
 
-    // Tuiles OpenStreetMap (gratuites, pas de clé API)
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    // --- Fonds de carte (un seul actif à la fois) ---
+    const osm = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
       maxZoom: 19,
       attribution: '© OpenStreetMap',
-    }).addTo(map);
+    });
+    // Assemblage des cartes marines raster du SHOM (sondes, isobathes…).
+    // Nécessite une clé d'API (cf. SHOM_API_KEY) ; sinon les tuiles renvoient 401.
+    const shomRaster = shomLayer('RASTER_MARINE_3857_WMTS');
+
+    const baseLayers = {
+      'OpenStreetMap': osm,
+      ['🌊 SHOM · Cartes marines' + (SHOM_API_KEY ? '' : ' (clé requise)')]: shomRaster,
+    };
+
+    // --- Overlays SHOM optionnels (cumulables par-dessus le fond) ---
+    // Couches publiques (accessibles sans clé), utiles pour la pêche.
+    const overlays = {
+      // Bathymétrie côtière haute résolution Bretagne (Lidar Litto3D)
+      'SHOM · Bathymétrie Bretagne': shomLayer('LITTO3D_BZH_2018_2021_PYR_3857_WMTS', { opacity: 0.85 }),
+      // Bathymétrie large façade Atlantique (MNT 100 m)
+      'SHOM · Bathymétrie large (MNT)': shomLayer('MNT_ATL100m_HOMONIM_PBMA_3857_WMTS', { opacity: 0.8, maxNativeZoom: 14 }),
+      // Nature des fonds / sédimentologie (sable, roche, vase…)
+      'SHOM · Nature des fonds': shomLayer('NDF_PYR-PNG_WLD_3857_WMTS', { opacity: 0.75, maxNativeZoom: 16 }),
+      // Toponymie marine
+      'SHOM · Toponymie marine': shomLayer('TOPONYMIE_PYR_PNG_3857_WMTS'),
+    };
+
+    // Fond par défaut : cartes marines SHOM si une clé est configurée,
+    // sinon OpenStreetMap (le fond raster serait en 401 sans clé).
+    (SHOM_API_KEY ? shomRaster : osm).addTo(map);
+
+    // Sélecteur de couches Leaflet (déplié pour être visible d'emblée)
+    L.control.layers(baseLayers, overlays, { collapsed: false }).addTo(map);
 
     // Clic sur la carte -> formulaire d'ajout de spot à ces coordonnées
     map.on('click', e => openSpotForm(null, e.latlng.lat, e.latlng.lng));
